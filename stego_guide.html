@@ -1,0 +1,445 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Steganography &amp; LSB — C02</title>
+<style>
+  :root {
+    --hi:  #d97706;
+    --lo:  #2563eb;
+    --ok:  #16a34a;
+    --no:  #dc2626;
+    --sec: #7c3aed;
+    --bg:  #f8fafc;
+    --border: #cbd5e1;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: 'Segoe UI', system-ui, sans-serif;
+    font-size: 15px; line-height: 1.7; color: #1e293b;
+    background: white; max-width: 860px;
+    margin: 0 auto; padding: 48px 40px;
+  }
+  h1 { font-size: 2rem; margin-bottom: .25em; color: #0f172a; }
+  h2 { font-size: 1.35rem; color: #0f172a; margin: 2em 0 .6em;
+       border-bottom: 2px solid var(--border); padding-bottom: .3em; }
+  h3 { font-size: 1.05rem; color: #334155; margin: 1.4em 0 .4em; }
+  p  { margin: .6em 0; }
+  .subtitle { color: #64748b; font-size: 1rem; margin-bottom: 2.5em; }
+
+  code {
+    font-family: 'Cascadia Code','Fira Code','Consolas',monospace;
+    font-size: .9em; background: #f1f5f9;
+    padding: 1px 5px; border-radius: 3px;
+  }
+  pre {
+    font-family: 'Cascadia Code','Fira Code','Consolas',monospace;
+    font-size: .85em; background: #1e293b; color: #e2e8f0;
+    padding: 16px 20px; border-radius: 8px;
+    overflow-x: auto; margin: 1em 0; line-height: 1.6;
+  }
+  pre .hi { color: #fbbf24; font-weight: bold; }
+  pre .lo { color: #60a5fa; font-weight: bold; }
+  pre .ok { color: #4ade80; }
+  pre .no { color: #f87171; }
+  pre .sc { color: #c084fc; font-weight: bold; }
+  pre .cm { color: #94a3b8; }
+
+  .diagram {
+    background: var(--bg); border: 1px solid var(--border);
+    border-radius: 8px; padding: 20px 24px; margin: 1em 0;
+    font-family: 'Cascadia Code','Fira Code','Consolas',monospace;
+    font-size: .85em; line-height: 1.9; overflow-x: auto;
+  }
+  .bit-grid { display: inline-flex; gap: 2px; margin: 8px 0; }
+  .bit {
+    width: 36px; height: 36px;
+    display: flex; align-items: center; justify-content: center;
+    border: 2px solid var(--border); border-radius: 4px;
+    font-family: monospace; font-size: 1.1em; font-weight: bold;
+    background: white;
+  }
+  .bit.hi  { background: #fef3c7; border-color: var(--hi); color: var(--hi); }
+  .bit.lo  { background: #dbeafe; border-color: var(--lo); color: var(--lo); }
+  .bit.sec { background: #f3e8ff; border-color: var(--sec); color: var(--sec); }
+  .bit.x   { background: #f1f5f9; border-color: #cbd5e1;   color: #94a3b8; }
+  .bit-label { display: inline-flex; gap: 2px; margin-bottom: 2px; }
+  .bit-label span { width: 36px; text-align: center; font-size: .7em; color: #94a3b8; }
+
+  .note {
+    background: #eff6ff; border-left: 4px solid #2563eb;
+    padding: 10px 16px; border-radius: 0 6px 6px 0; margin: 1em 0; font-size: .9em;
+  }
+  .tip {
+    background: #f0fdf4; border-left: 4px solid #16a34a;
+    padding: 10px 16px; border-radius: 0 6px 6px 0; margin: 1em 0; font-size: .9em;
+  }
+  .warn {
+    background: #fff7ed; border-left: 4px solid #f97316;
+    padding: 10px 16px; border-radius: 0 6px 6px 0; margin: 1em 0; font-size: .9em;
+  }
+  table { border-collapse: collapse; margin: 1em 0; font-size: .88em; width: 100%; }
+  th { background: #f1f5f9; padding: 8px 14px; text-align: left;
+       border: 1px solid var(--border); font-weight: 600; }
+  td { padding: 6px 14px; border: 1px solid var(--border); }
+  tr:nth-child(even) td { background: #f8fafc; }
+
+  .terminal {
+    background: #0f172a; color: #e2e8f0; font-family: monospace;
+    font-size: .85em; padding: 16px 20px; border-radius: 8px;
+    margin: 1em 0; line-height: 1.8;
+  }
+  .terminal .prompt { color: #4ade80; }
+  .terminal .key   { color: #fbbf24; }
+  .terminal .val   { color: #c084fc; }
+  .terminal .good  { color: #4ade80; }
+
+  /* comparison boxes */
+  .compare { display: flex; gap: 16px; margin: 1em 0; flex-wrap: wrap; }
+  .compare-box {
+    flex: 1; min-width: 200px;
+    border: 2px solid var(--border); border-radius: 8px;
+    padding: 12px 16px;
+  }
+  .compare-box.enc { border-color: var(--lo); background: #eff6ff; }
+  .compare-box.stg { border-color: var(--sec); background: #faf5ff; }
+  .compare-box h4 { font-size: .88em; margin-bottom: .4em; }
+  .compare-box h4.enc { color: var(--lo); }
+  .compare-box h4.stg { color: var(--sec); }
+
+  /* carrier diagram */
+  .carrier-row { display: flex; align-items: center; gap: 8px; margin: 6px 0; flex-wrap: wrap; }
+  .carrier-byte {
+    width: 32px; height: 32px;
+    display: flex; align-items: center; justify-content: center;
+    border: 1px solid var(--border); border-radius: 3px;
+    font-family: monospace; font-size: .75em; background: #f1f5f9;
+  }
+  .carrier-byte.changed { border-color: var(--sec); background: #f3e8ff; color: var(--sec); font-weight: bold; }
+
+  .toc { background: var(--bg); border: 1px solid var(--border); border-radius: 8px; padding: 16px 24px; margin: 1.5em 0; }
+  .toc ol { padding-left: 1.4em; }
+  .toc li { margin: .3em 0; }
+  hr { border: none; border-top: 1px solid var(--border); margin: 2em 0; }
+
+  @media print {
+    body { padding: 24px 28px; font-size: 13px; }
+    .page-break { page-break-before: always; }
+    pre, .diagram, .terminal { page-break-inside: avoid; }
+  }
+</style>
+</head>
+<body>
+
+<h1>Steganography &amp; LSB</h1>
+<p class="subtitle">Hiding data inside data — using the same bit operations from nibbles | C02 extra</p>
+
+<div class="toc">
+  <strong>Contents</strong>
+  <ol>
+    <li>Steganography vs Encryption</li>
+    <li>The Least Significant Bit (LSB) technique</li>
+    <li>Encoding — hiding a secret bit</li>
+    <li>Decoding — recovering a secret bit</li>
+    <li>Capacity — how much fits?</li>
+    <li>Why JPEG is a bad carrier</li>
+    <li>BMP as the right format</li>
+    <li>The demo program — <code>stego.c</code></li>
+  </ol>
+</div>
+
+
+<!-- ═══════════════════════════════════════════════════ 1 -->
+<h2>1 · Steganography vs Encryption</h2>
+
+<div class="compare">
+  <div class="compare-box enc">
+    <h4 class="enc">Encryption</h4>
+    <p>Everyone can <strong>see</strong> that a secret exists.<br>
+    The content is scrambled.</p>
+    <p><em>"There is a locked box here."</em></p>
+  </div>
+  <div class="compare-box stg">
+    <h4 class="stg">Steganography</h4>
+    <p>The secret is <strong>invisible</strong>.<br>
+    It looks like a normal file.</p>
+    <p><em>"There is no box — just a cat photo."</em></p>
+  </div>
+</div>
+
+<p>The word comes from Greek: <em>steganos</em> (covered) + <em>graphia</em> (writing). The goal is not to scramble the message but to make its very <strong>existence</strong> invisible.</p>
+
+<p>Real-world uses: watermarking images, covert communication, printer tracking dots (every modern printer secretly encodes serial number + timestamp on every printed page).</p>
+
+
+<!-- ═══════════════════════════════════════════════════ 2 -->
+<h2>2 · The Least Significant Bit (LSB) technique</h2>
+
+<p>Every pixel in a 24-bit image is three bytes: <strong>R, G, B</strong> — each 0–255. The LSB (bit 0) of each byte contributes a value of <em>at most 1</em> to the colour. Changing it is completely invisible to the human eye.</p>
+
+<div class="diagram">
+<strong>Carrier byte before:</strong><br><br>
+<div class="bit-label">
+  <span>7</span><span>6</span><span>5</span><span>4</span><span>3</span><span>2</span><span>1</span><span>0</span>
+</div><br>
+<div class="bit-grid">
+  <div class="bit x">1</div><div class="bit x">0</div><div class="bit x">1</div><div class="bit x">1</div>
+  <div class="bit x">0</div><div class="bit x">1</div><div class="bit x">1</div><div class="bit lo">0</div>
+</div>
+&nbsp; = 182  (a shade of orange)<br><br>
+
+<strong>After hiding secret bit <span style="color:var(--sec);font-weight:bold">1</span> in the LSB:</strong><br><br>
+<div class="bit-grid">
+  <div class="bit x">1</div><div class="bit x">0</div><div class="bit x">1</div><div class="bit x">1</div>
+  <div class="bit x">0</div><div class="bit x">1</div><div class="bit x">1</div><div class="bit sec">1</div>
+</div>
+&nbsp; = 183  (still the same shade of orange — indistinguishable)
+<br><br>
+<small style="color:#64748b">Difference: 1 out of 255 levels. The eye needs ≈ 3 levels to notice any change.</small>
+</div>
+
+<p>With <strong>one secret bit per carrier byte</strong>, to hide 1 secret byte you need 8 carrier bytes. For a 64×64 image (= 12,288 pixel bytes) you can hide up to <strong>1,536 secret bytes</strong>.</p>
+
+
+<!-- ═══════════════════════════════════════════════════ 3 -->
+<h2>3 · Encoding — hiding a secret bit</h2>
+
+<p>Two operations, both from the nibble guide:</p>
+
+<div class="diagram">
+<strong>Goal:</strong> replace the LSB of carrier byte with bit <em>b</em> from the secret<br><br>
+
+Step 1 — <strong>clear</strong> the carrier's LSB (mask with 0xFE = 1111 1110):<br><br>
+<div class="bit-grid">
+  <div class="bit x">1</div><div class="bit x">0</div><div class="bit x">1</div><div class="bit x">1</div>
+  <div class="bit x">0</div><div class="bit x">1</div><div class="bit x">1</div><div class="bit lo">0</div>
+</div>
+&nbsp; &amp; 0xFE =
+<div class="bit-grid" style="display:inline-flex">
+  <div class="bit x">1</div><div class="bit x">0</div><div class="bit x">1</div><div class="bit x">1</div>
+  <div class="bit x">0</div><div class="bit x">1</div><div class="bit x">1</div><div class="bit x">0</div>
+</div>
+<br><br>
+Step 2 — <strong>set</strong> the LSB to the secret bit (OR with the bit):<br><br>
+<div class="bit-grid">
+  <div class="bit x">1</div><div class="bit x">0</div><div class="bit x">1</div><div class="bit x">1</div>
+  <div class="bit x">0</div><div class="bit x">1</div><div class="bit x">1</div><div class="bit x">0</div>
+</div>
+&nbsp; | <span style="color:var(--sec);font-weight:bold">1</span> =
+<div class="bit-grid" style="display:inline-flex">
+  <div class="bit x">1</div><div class="bit x">0</div><div class="bit x">1</div><div class="bit x">1</div>
+  <div class="bit x">0</div><div class="bit x">1</div><div class="bit x">1</div><div class="bit sec">1</div>
+</div>
+</div>
+
+<pre>
+<span class="cm">/* the single line that hides one bit of secret into carrier px[i] */</span>
+bit  = (secret_byte <span class="hi">&gt;&gt; bit_position</span>) <span class="lo">&amp; 1</span>;    <span class="cm">// extract 1 bit</span>
+px[i] = (px[i] <span class="sc">&amp; 0xFE</span>) | <span class="sc">bit</span>;             <span class="cm">// clear LSB, set to secret bit</span>
+</pre>
+
+<h3>Embedding a full string (example: first char <code>'b'</code> = 98 = 0110 0010)</h3>
+
+<div class="diagram">
+<strong>'b'  =  ASCII 98  =  0110 0010</strong><br><br>
+Each bit goes into the LSB of one pixel byte, MSB first:<br><br>
+<div class="carrier-row">
+  <div class="carrier-byte changed">px[0]<br>LSB=<b>0</b></div>
+  <div class="carrier-byte changed">px[1]<br>LSB=<b>1</b></div>
+  <div class="carrier-byte changed">px[2]<br>LSB=<b>1</b></div>
+  <div class="carrier-byte changed">px[3]<br>LSB=<b>0</b></div>
+  <div class="carrier-byte changed">px[4]<br>LSB=<b>0</b></div>
+  <div class="carrier-byte changed">px[5]<br>LSB=<b>0</b></div>
+  <div class="carrier-byte changed">px[6]<br>LSB=<b>1</b></div>
+  <div class="carrier-byte changed">px[7]<br>LSB=<b>0</b></div>
+  <div style="font-size:.8em;color:#64748b">← 8 pixels used for 1 char</div>
+</div>
+<br>
+<small style="color:#64748b">The 8 bits spell out <code>01100010</code> = 98 = <code>'b'</code>. Reading the LSBs back gives the original byte.</small>
+</div>
+
+
+<!-- ═══════════════════════════════════════════════════ 4 -->
+<h2>4 · Decoding — recovering a secret bit</h2>
+
+<p>Mirror image of encoding: read the LSB of each carrier byte, shift it to the correct bit position, OR it into the recovered char.</p>
+
+<pre>
+<span class="cm">/* recover one char from 8 consecutive carrier bytes */</span>
+c = 0;
+for (b = 7; b &gt;= 0; b--)
+    c |= (px[i++] <span class="lo">&amp; 1</span>) <span class="hi">&lt;&lt; b</span>;     <span class="cm">// read LSB, shift to position b</span>
+</pre>
+
+<div class="diagram">
+Reading LSBs of px[0..7]: <b>0 1 1 0 0 0 1 0</b><br><br>
+
+b=7: c |= <b>0</b> &lt;&lt; 7  →  0000 0000<br>
+b=6: c |= <b>1</b> &lt;&lt; 6  →  0100 0000<br>
+b=5: c |= <b>1</b> &lt;&lt; 5  →  0110 0000<br>
+b=4: c |= <b>0</b> &lt;&lt; 4  →  0110 0000<br>
+b=3: c |= <b>0</b> &lt;&lt; 3  →  0110 0000<br>
+b=2: c |= <b>0</b> &lt;&lt; 2  →  0110 0000<br>
+b=1: c |= <b>1</b> &lt;&lt; 1  →  0110 0010<br>
+b=0: c |= <b>0</b> &lt;&lt; 0  →  0110 0010  =  98  =  <span style="color:var(--sec);font-weight:bold">'b'</span>  ✓
+</div>
+
+
+<!-- ═══════════════════════════════════════════════════ 5 -->
+<h2>5 · Capacity — how much fits?</h2>
+
+<table>
+  <thead><tr><th>Image size</th><th>Pixel bytes</th><th>Secret bytes</th><th>Secret chars</th></tr></thead>
+  <tbody>
+    <tr><td>64 × 64 (our demo)</td><td>12 288</td><td>1 536</td><td>1 536</td></tr>
+    <tr><td>256 × 256</td><td>196 608</td><td>24 576</td><td>~24 KB</td></tr>
+    <tr><td>1920 × 1080 (HD)</td><td>6 220 800</td><td>777 600</td><td>~760 KB</td></tr>
+  </tbody>
+</table>
+
+<pre>
+capacity_in_secret_bytes = (image_width * image_height * bytes_per_pixel) / 8;
+</pre>
+
+<div class="tip">
+  <strong>Tip — using nibbles instead of bits:</strong> you could hide the full low nibble of each carrier byte (4 bits per byte instead of 1). Capacity × 4, but the colour changes by up to 15 instead of 1 — potentially visible on solid-colour regions.
+</div>
+
+
+<!-- ═══════════════════════════════════════════════════ 6 -->
+<div class="page-break"></div>
+<h2>6 · Why JPEG is a bad carrier</h2>
+
+<div class="warn">
+  <strong>JPEG is a lossy, compressed format.</strong> It does not store raw pixel bytes — it stores DCT (Discrete Cosine Transform) coefficients, Huffman-coded. When you modify the LSBs of a JPEG file you are modifying compressed bitstream data, <em>not</em> pixel colours. Re-saving or re-encoding the image will completely destroy any hidden data.
+</div>
+
+<table>
+  <thead><tr><th>Format</th><th>Storage</th><th>LSB steganography</th></tr></thead>
+  <tbody>
+    <tr>
+      <td><strong>BMP</strong></td>
+      <td>Raw pixel bytes, uncompressed</td>
+      <td style="color:var(--ok);font-weight:bold">✓ Perfect — bytes stay intact</td>
+    </tr>
+    <tr>
+      <td><strong>PNG</strong></td>
+      <td>Lossless compressed (deflate)</td>
+      <td style="color:var(--hi);font-weight:bold">△ Works on raw data only (decompress → modify → recompress)</td>
+    </tr>
+    <tr>
+      <td><strong>JPEG</strong></td>
+      <td>Lossy compressed (DCT + Huffman)</td>
+      <td style="color:var(--no);font-weight:bold">✗ Re-encoding destroys hidden data</td>
+    </tr>
+    <tr>
+      <td><strong>Any file</strong></td>
+      <td>—</td>
+      <td style="color:var(--lo);">Raw bytes can always be used if the file is never re-encoded</td>
+    </tr>
+  </tbody>
+</table>
+
+
+<!-- ═══════════════════════════════════════════════════ 7 -->
+<h2>7 · BMP — the right format for this demo</h2>
+
+<p>BMP stores pixel bytes directly after a 54-byte header. No compression. What you write is what you read back.</p>
+
+<div class="diagram">
+<strong>BMP file layout (24-bit, no palette):</strong><br><br>
+<code>
+┌─────────────────┬──────────────────────────────────────────────────────┐<br>
+│  File header    │  DIB header (BITMAPINFOHEADER)                       │<br>
+│   14 bytes      │             40 bytes                                 │<br>
+├─────────────────┴──────────────────────────────────────────────────────┤<br>
+│  Pixel data — raw BGR bytes, rows stored <strong>bottom-up</strong>              │<br>
+│  width × height × 3 bytes  (rows padded to multiple of 4)             │<br>
+└────────────────────────────────────────────────────────────────────────┘<br>
+</code><br>
+Pixel data starts at byte offset <strong>54</strong>.  Embed your secret starting there.
+</div>
+
+<h3>Key header fields to write (little-endian)</h3>
+<table>
+  <thead><tr><th>Offset</th><th>Size</th><th>Value</th><th>Meaning</th></tr></thead>
+  <tbody>
+    <tr><td>0</td><td>2</td><td><code>'B','M'</code></td><td>BMP signature</td></tr>
+    <tr><td>2</td><td>4</td><td>file size</td><td>54 + pixel bytes</td></tr>
+    <tr><td>10</td><td>4</td><td><code>54</code></td><td>offset to pixel data</td></tr>
+    <tr><td>14</td><td>4</td><td><code>40</code></td><td>DIB header size</td></tr>
+    <tr><td>18</td><td>4</td><td>width</td><td>pixels</td></tr>
+    <tr><td>22</td><td>4</td><td>height</td><td>pixels (positive = bottom-up)</td></tr>
+    <tr><td>28</td><td>2</td><td><code>24</code></td><td>bits per pixel</td></tr>
+    <tr><td>30</td><td>4</td><td><code>0</code></td><td>compression = none</td></tr>
+  </tbody>
+</table>
+
+
+<!-- ═══════════════════════════════════════════════════ 8 -->
+<div class="page-break"></div>
+<h2>8 · The demo program — <code>stego.c</code></h2>
+
+<p>The program <code>stego.c</code> in this folder:</p>
+<ol style="padding-left:1.4em;margin:.6em 0">
+  <li>Builds a 64×64 BMP cat face image in memory</li>
+  <li>Embeds <code>"bounjour monde, guilhmar is on its eye"</code> into the pixel LSBs</li>
+  <li>Saves <code>cat_stego.bmp</code> — open it to see a normal cat</li>
+  <li>Decodes the hidden message and verifies it matches</li>
+</ol>
+
+<pre>
+<span class="prompt">$</span> gcc stego.c -o stego &amp;&amp; ./stego
+</pre>
+
+<h3>Expected output</h3>
+
+<div class="terminal">
+<span class="prompt">===</span> LSB Steganography Demo <span class="prompt">===</span><br><br>
+<span class="key">Secret</span>   : <span class="val">"bounjour monde, guilhmar is on its eye"</span><br>
+<span class="key">Bits</span>     : 312  (39 bytes)<br>
+<span class="key">Capacity</span> : 12288 bits = 1536 secret bytes in a 64x64 image<br>
+<br>
+<span class="key">px[0..2] BEFORE</span> : B=011 G=024 R=044<br>
+<span class="key">Encoding</span> 'b' (ASCII  98) : 01100010  → LSBs of px[0..7]<br>
+<span class="key">px[0..2] AFTER</span>  : B=010 G=025 R=045  (Δ ≤ 1 per channel)<br>
+<br>
+<span class="key">Written</span>  : cat_stego.bmp<br>
+<span class="key">Decoded</span>  : <span class="val">"bounjour monde, guilhmar is on its eye"</span><br>
+<span class="key">Match</span>    : <span class="good">YES ✓</span>
+</div>
+
+<h3>Hints — key operations in the code (no full functions)</h3>
+
+<pre>
+<span class="cm">/* ── embed: for each bit of the secret string ── */</span>
+<span class="cm">// iterate i = 0 to (strlen(SECRET) + 1) * 8 - 1  (+1 for '\0')</span>
+<span class="cm">// extract bit at position i from the secret:</span>
+bit = (SECRET[i / 8] <span class="hi">&gt;&gt; (7 - i % 8)</span>) <span class="lo">&amp; 1</span>;  <span class="cm">// which char, which bit (MSB first)</span>
+<span class="cm">// write that bit into the LSB of the carrier:</span>
+px[i] = (px[i] <span class="sc">&amp; 0xFE</span>) | <span class="sc">bit</span>;            <span class="cm">// clear LSB → set to secret bit</span>
+
+<span class="cm">/* ── decode: for each recovered char ── */</span>
+<span class="cm">// read 8 pixel LSBs, assemble them into one char (MSB first)</span>
+c = 0;
+for (b = 7; b &gt;= 0; b--)
+    c |= (px[i++] <span class="lo">&amp; 1</span>) <span class="hi">&lt;&lt; b</span>;
+<span class="cm">// stop when c == 0 (null terminator recovered)</span>
+
+<span class="cm">/* ── capacity check ── */</span>
+need_bits = (strlen(SECRET) + 1) * 8;
+<span class="cm">// must be ≤ PIXSZ  (image width × height × bytes_per_pixel)</span>
+</pre>
+
+<div class="note">
+  <strong>Connection to nibbles (ex11/ex12):</strong> the operations are identical —
+  <code>&gt;&gt; n</code> to extract a bit, <code>&amp; 1</code> to isolate it, <code>&amp; 0xFE</code> to clear the slot, <code>| bit</code> to write it. Steganography is just nibble-extraction applied to 1-bit slices instead of 4-bit slices.
+</div>
+
+<hr>
+<p style="font-size:.8em; color:#94a3b8; text-align:center;">
+  42 School · C Piscine C02 · guilhmar · March 2026
+</p>
+
+</body>
+</html>
