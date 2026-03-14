@@ -58,7 +58,7 @@ By participating in this project, you agree to abide by the [Code of Conduct](CO
    git push origin feat/your-feature-name
    ```
 5. **Open a Pull Request** against the `main` branch.
-6. Fill in the PR template and describe what you changed and why.
+6. In the pull request description, clearly explain what you changed and why.
 
 ---
 
