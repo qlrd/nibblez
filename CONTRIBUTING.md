@@ -25,7 +25,7 @@ By participating in this project, you agree to abide by the [Code of Conduct](CO
 ## How to Report a Bug
 
 1. Search [existing issues](https://github.com/qlrd/nibblez/issues) to make sure it hasn't been reported already.
-2. Open a new issue using the **Bug Report** template.
+2. Open a new issue in the repository.
 3. Include:
    - A clear and descriptive title
    - Steps to reproduce the problem
@@ -37,7 +37,7 @@ By participating in this project, you agree to abide by the [Code of Conduct](CO
 ## How to Request a Feature
 
 1. Search [existing issues](https://github.com/qlrd/nibblez/issues) to check if it's already been requested.
-2. Open a new issue using the **Feature Request** template.
+2. Open a new issue in the repository.
 3. Describe the feature and its motivation clearly.
 
 ---
