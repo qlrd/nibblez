@@ -1,0 +1,601 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Nibbles in C — ex11 &amp; ex12</title>
+<style>
+  :root {
+    --hi: #d97706;   /* amber  — high nibble */
+    --lo: #2563eb;   /* blue   — low nibble  */
+    --ok: #16a34a;   /* green  — printable   */
+    --no: #dc2626;   /* red    — non-print   */
+    --bg: #f8fafc;
+    --border: #cbd5e1;
+    --code-bg: #1e293b;
+    --code-fg: #e2e8f0;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    font-family: 'Segoe UI', system-ui, sans-serif;
+    font-size: 15px;
+    line-height: 1.7;
+    color: #1e293b;
+    background: white;
+    max-width: 860px;
+    margin: 0 auto;
+    padding: 48px 40px;
+  }
+
+  h1 { font-size: 2rem; margin-bottom: .25em; color: #0f172a; }
+  h2 { font-size: 1.35rem; color: #0f172a; margin: 2em 0 .6em; border-bottom: 2px solid var(--border); padding-bottom: .3em; }
+  h3 { font-size: 1.05rem; color: #334155; margin: 1.4em 0 .4em; }
+  p  { margin: .6em 0; }
+
+  .subtitle { color: #64748b; font-size: 1rem; margin-bottom: 2.5em; }
+
+  /* ── code blocks ─────────────────────────────────────── */
+  code {
+    font-family: 'Cascadia Code', 'Fira Code', 'Consolas', monospace;
+    font-size: .9em;
+    background: #f1f5f9;
+    padding: 1px 5px;
+    border-radius: 3px;
+  }
+  pre {
+    font-family: 'Cascadia Code', 'Fira Code', 'Consolas', monospace;
+    font-size: .85em;
+    background: var(--code-bg);
+    color: var(--code-fg);
+    padding: 16px 20px;
+    border-radius: 8px;
+    overflow-x: auto;
+    margin: 1em 0;
+    line-height: 1.6;
+  }
+  pre .hi { color: #fbbf24; font-weight: bold; }
+  pre .lo { color: #60a5fa; font-weight: bold; }
+  pre .ok { color: #4ade80; }
+  pre .no { color: #f87171; }
+  pre .cm { color: #94a3b8; }
+
+  /* ── diagram boxes ───────────────────────────────────── */
+  .diagram {
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 20px 24px;
+    margin: 1em 0;
+    font-family: 'Cascadia Code', 'Fira Code', 'Consolas', monospace;
+    font-size: .85em;
+    line-height: 1.9;
+    overflow-x: auto;
+  }
+
+  /* ── bit grid ────────────────────────────────────────── */
+  .bit-grid {
+    display: inline-flex;
+    gap: 2px;
+    margin: 8px 0;
+  }
+  .bit {
+    width: 36px; height: 36px;
+    display: flex; align-items: center; justify-content: center;
+    border: 2px solid var(--border);
+    border-radius: 4px;
+    font-family: monospace;
+    font-size: 1.1em;
+    font-weight: bold;
+    background: white;
+  }
+  .bit.hi { background: #fef3c7; border-color: var(--hi); color: var(--hi); }
+  .bit.lo { background: #dbeafe; border-color: var(--lo); color: var(--lo); }
+  .bit.x  { background: #f1f5f9; border-color: #cbd5e1; color: #94a3b8; }
+
+  .bit-label {
+    display: inline-flex;
+    gap: 2px;
+    margin-bottom: 2px;
+  }
+  .bit-label span {
+    width: 36px;
+    text-align: center;
+    font-size: .7em;
+    color: #94a3b8;
+  }
+
+  .bit-section {
+    display: inline-block;
+    text-align: center;
+    margin: 8px 16px 8px 0;
+    vertical-align: top;
+  }
+  .bit-section .label {
+    font-size: .78em;
+    font-weight: 600;
+    margin-top: 4px;
+  }
+  .bit-section .label.hi { color: var(--hi); }
+  .bit-section .label.lo { color: var(--lo); }
+
+  /* ── operation row ───────────────────────────────────── */
+  .op-row {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    flex-wrap: wrap;
+    margin: 12px 0;
+  }
+  .op-arrow {
+    font-size: 1.5em;
+    color: #64748b;
+  }
+  .op-label {
+    font-size: .78em;
+    color: #64748b;
+    text-align: center;
+  }
+
+  /* ── tables ──────────────────────────────────────────── */
+  table {
+    border-collapse: collapse;
+    margin: 1em 0;
+    font-size: .88em;
+    width: 100%;
+  }
+  th {
+    background: #f1f5f9;
+    padding: 8px 14px;
+    text-align: left;
+    border: 1px solid var(--border);
+    font-weight: 600;
+  }
+  td {
+    padding: 6px 14px;
+    border: 1px solid var(--border);
+  }
+  tr:nth-child(even) td { background: #f8fafc; }
+  td.center { text-align: center; }
+  td.hi { color: var(--hi); font-weight: bold; font-family: monospace; }
+  td.lo { color: var(--lo); font-weight: bold; font-family: monospace; }
+
+  /* ── ASCII range bar ─────────────────────────────────── */
+  .ascii-bar {
+    display: flex;
+    gap: 0;
+    height: 32px;
+    border-radius: 6px;
+    overflow: hidden;
+    margin: 12px 0;
+    font-size: .78em;
+    font-weight: 600;
+  }
+  .ascii-seg {
+    display: flex; align-items: center; justify-content: center;
+    color: white;
+    padding: 0 8px;
+  }
+  .ascii-seg.ctrl  { background: var(--no);    flex: 32; }
+  .ascii-seg.print { background: var(--ok);    flex: 95; }
+  .ascii-seg.del   { background: #7c3aed;      flex: 1;  min-width: 28px; }
+
+  /* ── info box ────────────────────────────────────────── */
+  .note {
+    background: #eff6ff;
+    border-left: 4px solid #2563eb;
+    padding: 10px 16px;
+    border-radius: 0 6px 6px 0;
+    margin: 1em 0;
+    font-size: .9em;
+  }
+  .tip {
+    background: #f0fdf4;
+    border-left: 4px solid #16a34a;
+    padding: 10px 16px;
+    border-radius: 0 6px 6px 0;
+    margin: 1em 0;
+    font-size: .9em;
+  }
+
+  /* ── memory dump ─────────────────────────────────────── */
+  .memdump {
+    font-family: monospace;
+    font-size: .88em;
+    background: #0f172a;
+    color: #e2e8f0;
+    padding: 16px 20px;
+    border-radius: 8px;
+    margin: 1em 0;
+    line-height: 1.8;
+  }
+  .memdump .addr { color: #a78bfa; }
+  .memdump .sep  { color: #64748b; }
+  .memdump .hex-hi { color: #fbbf24; }
+  .memdump .hex-lo { color: #60a5fa; }
+  .memdump .prn  { color: #4ade80; }
+  .memdump .dot  { color: #f87171; }
+
+  /* ── print ───────────────────────────────────────────── */
+  @media print {
+    body { padding: 24px 28px; font-size: 13px; }
+    .page-break { page-break-before: always; }
+    pre, .diagram, .memdump { page-break-inside: avoid; }
+  }
+
+  hr { border: none; border-top: 1px solid var(--border); margin: 2em 0; }
+
+  .toc { background: var(--bg); border: 1px solid var(--border); border-radius: 8px; padding: 16px 24px; margin: 1.5em 0; }
+  .toc ol { padding-left: 1.4em; }
+  .toc li { margin: .3em 0; }
+</style>
+</head>
+<body>
+
+<h1>Nibbles in C</h1>
+<p class="subtitle">A visual guide to bit-shifting and hex display — <strong>ex11</strong> &amp; <strong>ex12</strong> | C Piscine C02</p>
+
+<div class="toc">
+  <strong>Contents</strong>
+  <ol>
+    <li>What is a nibble?</li>
+    <li>High nibble — the <code>&gt;&gt; 4</code> shift</li>
+    <li>Low nibble — the <code>&amp; 15</code> mask</li>
+    <li>Nibble → hex character</li>
+    <li>Printable ASCII range</li>
+    <li>ex11 — <code>ft_putstr_non_printable</code> walkthrough</li>
+    <li>ex12 — <code>ft_print_memory</code> walkthrough</li>
+  </ol>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════ 1 -->
+<h2>1 · What is a nibble?</h2>
+
+<p>A <strong>byte</strong> is 8 bits. A <strong>nibble</strong> is half of that — exactly 4 bits. Because 4 bits can represent values from 0 to 15, one nibble maps perfectly to <em>one</em> hexadecimal digit.</p>
+
+<p>That means every byte splits cleanly into a <span style="color:var(--hi);font-weight:bold">high nibble</span> (the upper 4 bits) and a <span style="color:var(--lo);font-weight:bold">low nibble</span> (the lower 4 bits), giving exactly the two hex digits we need to display it.</p>
+
+<div class="diagram">
+<div>Byte: <strong>0x42</strong>  =  <strong>0100 0010</strong>  =  decimal 66  =  ASCII <strong>'B'</strong></div>
+<br>
+<div class="bit-section">
+  <div class="bit-label">
+    <span>7</span><span>6</span><span>5</span><span>4</span>
+    <span>3</span><span>2</span><span>1</span><span>0</span>
+  </div>
+  <div class="bit-grid">
+    <div class="bit hi">0</div><div class="bit hi">1</div>
+    <div class="bit hi">0</div><div class="bit hi">0</div>
+    <div class="bit lo">0</div><div class="bit lo">0</div>
+    <div class="bit lo">1</div><div class="bit lo">0</div>
+  </div>
+  <br>
+  <div style="display:inline-flex; gap:2px;">
+    <div style="width:152px; text-align:center; font-size:.78em; font-weight:600; color:var(--hi);">HIGH nibble = 4</div>
+    <div style="width:152px; text-align:center; font-size:.78em; font-weight:600; color:var(--lo);">LOW nibble = 2</div>
+  </div>
+</div>
+</div>
+
+<p>Together: <span style="color:var(--hi);font-weight:bold">4</span><span style="color:var(--lo);font-weight:bold">2</span> → the two characters we write when printing <code>0x42</code> in hex.</p>
+
+
+<!-- ═══════════════════════════════════════════════════════ 2 -->
+<h2>2 · High nibble — the <code>&gt;&gt; 4</code> shift</h2>
+
+<p>To isolate the <strong>upper</strong> 4 bits, we shift the entire byte 4 positions to the right. The lower bits fall off; zeros fill in from the left.</p>
+
+<div class="diagram">
+<strong>Step 1 — original byte (0x42 = 0100 0010):</strong><br><br>
+<div class="bit-grid">
+  <div class="bit hi">0</div><div class="bit hi">1</div>
+  <div class="bit hi">0</div><div class="bit hi">0</div>
+  <div class="bit lo">0</div><div class="bit lo">0</div>
+  <div class="bit lo">1</div><div class="bit lo">0</div>
+</div>
+<br><br>
+<strong>Step 2 — after <code>byte &gt;&gt; 4</code>: (shift right 4 places)</strong><br><br>
+<div class="bit-grid">
+  <div class="bit x">0</div><div class="bit x">0</div>
+  <div class="bit x">0</div><div class="bit x">0</div>
+  <div class="bit hi">0</div><div class="bit hi">1</div>
+  <div class="bit hi">0</div><div class="bit hi">0</div>
+</div>
+&nbsp; = <strong>4</strong>  ✓
+<br><br>
+<small style="color:#64748b">The low nibble bits fell off the right edge. The high nibble slid into the low positions.</small>
+</div>
+
+<div class="note">
+  <strong>Why <code>&amp; 15</code> after the shift?</strong><br>
+  When the original <code>char</code> is negative (sign bit set, e.g. ASCII 200), the CPU may fill the left side with <code>1</code>s instead of <code>0</code>s during the shift. The mask <code>&amp; 15</code> cuts those off safely. It costs nothing and prevents wrong nibbles.
+</div>
+
+<pre>
+<span class="hi">high_nibble</span> = (byte <span class="hi">&gt;&gt; 4</span>) <span class="cm">&amp; 15</span>;   <span class="cm">// e.g. 0x42 → 4</span>
+</pre>
+
+
+<!-- ═══════════════════════════════════════════════════════ 3 -->
+<h2>3 · Low nibble — the <code>&amp; 15</code> mask</h2>
+
+<p>The lower 4 bits are already in the right place. We just need to <em>zero out</em> the upper half. We do this with a bitwise AND against <code>15</code> (binary <code>0000 1111</code>), which acts as a stencil: holes only where we want the bits to show through.</p>
+
+<div class="diagram">
+<strong>byte (0x42):</strong><br><br>
+<div class="bit-grid">
+  <div class="bit hi">0</div><div class="bit hi">1</div>
+  <div class="bit hi">0</div><div class="bit hi">0</div>
+  <div class="bit lo">0</div><div class="bit lo">0</div>
+  <div class="bit lo">1</div><div class="bit lo">0</div>
+</div>
+<br>
+<strong>mask 15 = 0x0F (0000 1111):</strong><br><br>
+<div class="bit-grid">
+  <div class="bit x">0</div><div class="bit x">0</div>
+  <div class="bit x">0</div><div class="bit x">0</div>
+  <div class="bit lo">1</div><div class="bit lo">1</div>
+  <div class="bit lo">1</div><div class="bit lo">1</div>
+</div>
+<br>
+<strong>AND result:</strong><br><br>
+<div class="bit-grid">
+  <div class="bit x">0</div><div class="bit x">0</div>
+  <div class="bit x">0</div><div class="bit x">0</div>
+  <div class="bit lo">0</div><div class="bit lo">0</div>
+  <div class="bit lo">1</div><div class="bit lo">0</div>
+</div>
+&nbsp; = <strong>2</strong>  ✓
+<br><br>
+<small style="color:#64748b">The upper bits were blocked by the stencil. The lower nibble shines through unchanged.</small>
+</div>
+
+<pre>
+<span class="lo">low_nibble</span>  = byte <span class="lo">&amp; 15</span>;          <span class="cm">// e.g. 0x42 → 2</span>
+</pre>
+
+
+<!-- ═══════════════════════════════════════════════════════ 4 -->
+<h2>4 · Nibble → hex character</h2>
+
+<p>We have a nibble value from 0 to 15. We need to turn it into the right ASCII character (<code>'0'</code>–<code>'9'</code> or <code>'a'</code>–<code>'f'</code>).</p>
+
+<table>
+  <thead>
+    <tr><th>Nibble</th><th>Hex digit</th><th>ASCII decimal</th><th>How to get there</th></tr>
+  </thead>
+  <tbody>
+    <tr><td class="center">0</td> <td class="center lo">'0'</td><td class="center">48</td><td><code>0 + 48 = 48</code></td></tr>
+    <tr><td class="center">1</td> <td class="center lo">'1'</td><td class="center">49</td><td><code>1 + 48 = 49</code></td></tr>
+    <tr><td class="center">...</td><td class="center">...</td><td class="center">...</td><td>...</td></tr>
+    <tr><td class="center">9</td> <td class="center lo">'9'</td><td class="center">57</td><td><code>9 + 48 = 57</code></td></tr>
+    <tr><td class="center">10</td><td class="center hi">'a'</td><td class="center">97</td><td><code>10 + 87 = 97</code> &nbsp;(because 'a'=97, 97−10=87)</td></tr>
+    <tr><td class="center">11</td><td class="center hi">'b'</td><td class="center">98</td><td><code>11 + 87 = 98</code></td></tr>
+    <tr><td class="center">12</td><td class="center hi">'c'</td><td class="center">99</td><td><code>12 + 87 = 99</code></td></tr>
+    <tr><td class="center">13</td><td class="center hi">'d'</td><td class="center">100</td><td><code>13 + 87 = 100</code></td></tr>
+    <tr><td class="center">14</td><td class="center hi">'e'</td><td class="center">101</td><td><code>14 + 87 = 101</code></td></tr>
+    <tr><td class="center">15</td><td class="center hi">'f'</td><td class="center">102</td><td><code>15 + 87 = 102</code></td></tr>
+  </tbody>
+</table>
+
+<pre>
+if (nibble &lt; 10)
+    c = nibble + <span class="ok">48</span>;   <span class="cm">// '0'–'9'  (ASCII 48–57)</span>
+else
+    c = nibble + <span class="hi">87</span>;   <span class="cm">// 'a'–'f'  (87 = 'a' − 10 = 97 − 10)</span>
+</pre>
+
+<div class="tip">
+  <strong>Memory trick:</strong> <code>'0'</code> is ASCII 48. <code>'a'</code> is ASCII 97. The gap between them across the 0–9 / a–f boundary: instead of adding 48 to everything and then correcting letters by +49 (awkward), we just switch formula at 10.
+</div>
+
+
+<!-- ═══════════════════════════════════════════════════════ 5 -->
+<h2>5 · Printable ASCII range</h2>
+
+<p>Both exercises rely on distinguishing <em>printable</em> from <em>non-printable</em> characters.</p>
+
+<div class="ascii-bar">
+  <div class="ascii-seg ctrl">0–31 control</div>
+  <div class="ascii-seg print">32–126 printable</div>
+  <div class="ascii-seg del">127 DEL</div>
+</div>
+
+<table>
+  <thead><tr><th>Range</th><th>Count</th><th>Examples</th><th>Printable?</th></tr></thead>
+  <tbody>
+    <tr><td>0 – 31</td><td>32</td><td><code>\0 \t \n \r</code> …</td><td style="color:var(--no);font-weight:bold">NO</td></tr>
+    <tr><td>32 – 126</td><td>95</td><td><code>space ! A a 0 ~</code> …</td><td style="color:var(--ok);font-weight:bold">YES</td></tr>
+    <tr><td>127</td><td>1</td><td>DEL (delete control)</td><td style="color:var(--no);font-weight:bold">NO</td></tr>
+  </tbody>
+</table>
+
+<pre>
+<span class="cm">/* condition used in both ex11 and ex12 */</span>
+if (byte &gt;= <span class="ok">32</span> &amp;&amp; byte &lt;= <span class="ok">126</span>)
+    <span class="cm">/* printable — output as-is */</span>
+else
+    <span class="cm">/* non-printable — escape or replace with '.' */</span>
+</pre>
+
+
+<!-- ═══════════════════════════════════════════════════════ 6 -->
+<div class="page-break"></div>
+<h2>6 · ex11 — <code>ft_putstr_non_printable</code> walkthrough</h2>
+
+<p>For every character in the string: if printable → write it directly; if not → write a backslash followed by two hex digits.</p>
+
+<h3>Example: the string <code>"hi\t!"</code></h3>
+
+<table>
+  <thead>
+    <tr><th>Char</th><th>ASCII</th><th>Printable?</th><th>Output</th><th>Why</th></tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><code>'h'</code></td><td class="center">104</td>
+      <td style="color:var(--ok);font-weight:bold">YES</td>
+      <td><code>h</code></td>
+      <td>104 is in 32–126</td>
+    </tr>
+    <tr>
+      <td><code>'i'</code></td><td class="center">105</td>
+      <td style="color:var(--ok);font-weight:bold">YES</td>
+      <td><code>i</code></td>
+      <td>105 is in 32–126</td>
+    </tr>
+    <tr>
+      <td><code>'\t'</code></td><td class="center">9</td>
+      <td style="color:var(--no);font-weight:bold">NO</td>
+      <td><code>\09</code></td>
+      <td>9 &lt; 32 → escape as hex</td>
+    </tr>
+    <tr>
+      <td><code>'!'</code></td><td class="center">33</td>
+      <td style="color:var(--ok);font-weight:bold">YES</td>
+      <td><code>!</code></td>
+      <td>33 is in 32–126</td>
+    </tr>
+  </tbody>
+</table>
+
+<h3>Stepping through <code>'\t'</code> (ASCII 9 = 0x09)</h3>
+
+<div class="diagram">
+<strong>Byte: 9  =  0000 1001</strong><br><br>
+
+<div class="bit-grid">
+  <div class="bit hi">0</div><div class="bit hi">0</div>
+  <div class="bit hi">0</div><div class="bit hi">0</div>
+  <div class="bit lo">1</div><div class="bit lo">0</div>
+  <div class="bit lo">0</div><div class="bit lo">1</div>
+</div>
+<br><br>
+<strong>High nibble:</strong>  (9 &gt;&gt; 4) &amp; 15  =  0000 &gt;&gt; 4  =  <span style="color:var(--hi);font-weight:bold">0</span>  → <code>0 + 48 = 48</code> → <span style="font-weight:bold">'0'</span><br>
+<strong>Low nibble:</strong>   9 &amp; 15         =        1001  =  <span style="color:var(--lo);font-weight:bold">9</span>  → <code>9 + 48 = 57</code> → <span style="font-weight:bold">'9'</span><br><br>
+<span style="font-size:1.1em;font-weight:bold">write: '\' then '0' then '9'  →  <span style="color:var(--no)">\09</span></span>
+</div>
+
+<h3>Stepping through <code>'\n'</code> (ASCII 10 = 0x0A)</h3>
+
+<div class="diagram">
+<strong>Byte: 10  =  0000 1010</strong><br><br>
+
+<div class="bit-grid">
+  <div class="bit hi">0</div><div class="bit hi">0</div>
+  <div class="bit hi">0</div><div class="bit hi">0</div>
+  <div class="bit lo">1</div><div class="bit lo">0</div>
+  <div class="bit lo">1</div><div class="bit lo">0</div>
+</div>
+<br><br>
+<strong>High nibble:</strong>  (10 &gt;&gt; 4) &amp; 15  =  <span style="color:var(--hi);font-weight:bold">0</span>  → <code>0 + 48 = 48</code>  → <span style="font-weight:bold">'0'</span><br>
+<strong>Low nibble:</strong>   10 &amp; 15          =  <span style="color:var(--lo);font-weight:bold">10</span> → <code>10 + 87 = 97</code> → <span style="font-weight:bold">'a'</span><br><br>
+<span style="font-size:1.1em;font-weight:bold">write: '\' then '0' then 'a'  →  <span style="color:var(--no)">\0a</span></span>
+</div>
+
+<pre>
+void    ft_putstr_non_printable(char *str)
+{
+    char    hex[2];
+
+    <span class="cm">// 1. iterate over each character (while loop, advance pointer at end)</span>
+    <span class="cm">// 2. check if printable (32–126):</span>
+    <span class="cm">//      YES → write the character directly (1 byte)</span>
+    <span class="cm">//      NO  → write '\\', then compute hex[2] from the two nibbles</span>
+    <span class="cm">//             high: (byte <span class="hi">&gt;&gt; 4</span>) &amp; 15  → convert to char → hex[0]</span>
+    <span class="cm">//             low:   byte <span class="lo">&amp; 15</span>        → convert to char → hex[1]</span>
+    <span class="cm">//             write(1, hex, 2)</span>
+}
+</pre>
+
+
+<!-- ═══════════════════════════════════════════════════════ 7 -->
+<div class="page-break"></div>
+<h2>7 · ex12 — <code>ft_print_memory</code> walkthrough</h2>
+
+<p>This function prints raw memory in three columns per line (16 bytes per line):</p>
+
+<div class="diagram">
+<strong>Column layout (80 chars per line):</strong><br><br>
+<code>
+&lt;--- 16-digit address ---&gt;&lt;sep&gt;&lt;-------- 40-char hex section --------&gt;&lt;--- 16-char printable ---&gt;
+</code><br><br>
+<code>
+000000010a161f40: 426f 6e6a 6f75 7220 6c65 7320 616d 696e Bonjour les amin
+</code><br><br>
+<small style="color:#64748b">
+Each pair of bytes shares a space · after the last pair there is also a space (serves as column separator)
+</small>
+</div>
+
+<h3>Column 1 — 16-digit hex address</h3>
+
+<p>A pointer on a 64-bit system is 8 bytes = 64 bits. To print all 16 hex digits we extract nibbles from the most significant down to the least, using a shift that starts at 60 and decreases by 4 each step.</p>
+
+<div class="diagram">
+<strong>Address: 0x000000010a161f40</strong><br><br>
+
+<code>shift = 60 → nibble = (addr &gt;&gt; 60) &amp; 15 = 0 → '0'</code><br>
+<code>shift = 56 → nibble = (addr &gt;&gt; 56) &amp; 15 = 0 → '0'</code><br>
+<code>...</code><br>
+<code>shift = 36 → nibble = (addr &gt;&gt; 36) &amp; 15 = 1 → '1'</code><br>
+<code>shift = 32 → nibble = (addr &gt;&gt; 32) &amp; 15 = 0 → '0'</code><br>
+<code>shift = 28 → nibble = (addr &gt;&gt; 28) &amp; 15 = a → 'a'</code><br>
+<code>...</code><br>
+<code>shift =  4 → nibble = (addr &gt;&gt;  4) &amp; 15 = 4 → '4'</code><br>
+<code>shift =  0 → nibble = (addr &gt;&gt;  0) &amp; 15 = 0 → '0'</code><br><br>
+Result: <span style="color:#a78bfa;font-weight:bold">000000010a161f40</span>
+</div>
+
+<h3>Column 2 — hex bytes (with padding for short lines)</h3>
+
+<p>We loop <code>j = 0..15</code>. For each position: if <code>j &lt; line_len</code> print the two hex chars; otherwise print two spaces. After every pair (when <code>j % 2 == 0</code>) print a space.</p>
+
+<div class="diagram">
+<strong>Full line (16 bytes): </strong><code>426f 6e6a 6f75 7220 6c65 7320 616d 696e </code> (40 chars)<br><br>
+<strong>Partial line (12 bytes):</strong><br>
+<code>0a09 6c6f 6c2e 6c6f 6c0a 2000 &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</code><br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span style="color:var(--no)">↑ j=12 to 15: "  " × 4 + spaces = 10 padding chars</span><br><br>
+<small style="color:#64748b">The hex column always occupies exactly 40 characters — guaranteed by the padding logic.</small>
+</div>
+
+<h3>Column 3 — printable characters</h3>
+
+<p>Same printable check as ex11 (32–126). Non-printable characters are replaced with a dot <code>'.'</code>.</p>
+
+<h3>Full example output</h3>
+
+<div class="memdump">
+<span class="addr">000000010a161f40</span><span class="sep">: </span><span class="hex-hi">42</span><span class="hex-lo">6f</span> <span class="hex-hi">6e</span><span class="hex-lo">6a</span> <span class="hex-hi">6f</span><span class="hex-lo">75</span> <span class="hex-hi">72</span><span class="hex-lo">20</span> <span class="hex-hi">6c</span><span class="hex-lo">65</span> <span class="hex-hi">73</span><span class="hex-lo">20</span> <span class="hex-hi">61</span><span class="hex-lo">6d</span> <span class="hex-hi">69</span><span class="hex-lo">6e</span> <span class="prn">Bonjour les amin</span><br>
+<span class="addr">000000010a161f50</span><span class="sep">: </span><span class="hex-hi">63</span><span class="hex-lo">68</span> <span class="hex-hi">65</span><span class="hex-lo">73</span> <span class="hex-hi">09</span><span class="hex-lo">0a</span> <span class="hex-hi">09</span><span class="hex-lo">63</span> <span class="hex-hi">07</span><span class="hex-lo">20</span> <span class="hex-hi">65</span><span class="hex-lo">73</span> <span class="hex-hi">74</span><span class="hex-lo">20</span> <span class="hex-hi">66</span><span class="hex-lo">6f</span> <span class="prn">ches</span><span class="dot">...</span><span class="prn">c</span><span class="dot">.</span><span class="prn"> est fo</span><br>
+<span class="addr">000000010a161f90</span><span class="sep">: </span><span class="hex-hi">0a</span><span class="hex-lo">09</span> <span class="hex-hi">6c</span><span class="hex-lo">6f</span> <span class="hex-hi">6c</span><span class="hex-lo">2e</span> <span class="hex-hi">6c</span><span class="hex-lo">6f</span> <span class="hex-hi">6c</span><span class="hex-lo">0a</span> <span class="hex-hi">20</span><span class="hex-lo">00</span> &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="dot">..</span><span class="prn">lol.lol. </span><span class="dot">.</span>
+</div>
+
+<p>Notice the last line: only 12 bytes of data, so the hex column has 10 spaces of padding before the printable column begins, keeping everything aligned.</p>
+
+<h3>Hints for each helper</h3>
+<pre>
+<span class="cm">/* ── address helper ── */</span>
+<span class="cm">// cast ptr to unsigned long (fits a 64-bit pointer)</span>
+<span class="cm">// start shift at 60, loop while shift &gt;= 0, step -4  (gives 16 iterations)</span>
+<span class="cm">// each step: nibble = (val <span class="hi">&gt;&gt; shift</span>) <span class="lo">&amp; 15</span>  → convert to char → write 1 byte</span>
+
+<span class="cm">/* ── hex column helper ── */</span>
+<span class="cm">// loop j = 0 to 15  (always 16 slots, real data OR padding)</span>
+<span class="cm">//   if j &lt; len  → read byte, split into 2 nibbles, write 2 hex chars</span>
+<span class="cm">//   else        → write "  " (two spaces to keep column width)</span>
+<span class="cm">//   after j++: if j % 2 == 0 → write " " (space every pair of bytes)</span>
+
+<span class="cm">/* ── printable column helper ── */</span>
+<span class="cm">// loop j = 0 to len-1</span>
+<span class="cm">//   byte &gt;= <span class="ok">32</span> &amp;&amp; byte &lt;= <span class="ok">126</span>  → write the char</span>
+<span class="cm">//   else                         → write "."</span>
+</pre>
+
+<hr>
+<p style="font-size:.8em; color:#94a3b8; text-align:center;">
+  42 School · C Piscine C02 · guilhmar · March 2026
+</p>
+
+</body>
+</html>
